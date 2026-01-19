@@ -1,7 +1,8 @@
 use crossterm::event::{self, KeyCode, KeyEvent};
 use ratatui::DefaultTerminal;
+use ratatui::layout::Constraint;
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, List, ListDirection, ListItem, ListState};
+use ratatui::widgets::{Block, List, ListDirection, ListItem, ListState, Row, Table, TableState};
 mod db;
 
 struct App {
@@ -10,32 +11,46 @@ struct App {
     list_state: ListState,
 }
 
+pub trait Applet {
+    fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>>;
+    fn get_name(&self) -> String;
+}
+
 enum AppState {
     TopMenu,
+    ListItems,
+    ListLocations,
     Exit,
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self {
-            state: AppState::TopMenu,
-            top_menu_options: vec![
-                "Item 1".to_string(),
-                "Item 2".to_string(),
-                "Quit".to_string(),
-            ],
-            list_state: ListState::default(),
-        }
+        let mut app = Self::new();
+        app.top_menu_options = vec![
+            "List Locations".to_string(),
+            "Item 2".to_string(),
+            "Quit".to_string(),
+        ];
+        app
     }
 }
 
 impl App {
+    fn new() -> Self {
+        Self {
+            state: AppState::TopMenu,
+            top_menu_options: Vec::new(),
+            list_state: ListState::default(),
+        }
+    }
     fn run(mut self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>> {
         self.list_state.select_first();
         loop {
             match self.state {
                 AppState::Exit => break,
                 AppState::TopMenu => self.run_top_menu(terminal)?,
+                AppState::ListLocations => self.run_list_locations(terminal)?,
+                _ => break,
             }
         }
         Ok(())
@@ -64,11 +79,48 @@ impl App {
                 KeyCode::Char('q') | KeyCode::Esc => self.state = AppState::Exit,
                 KeyCode::Down => self.list_state.select_next(),
                 KeyCode::Up => self.list_state.select_previous(),
-                KeyCode::Enter => {
-                    if self.list_state.selected().unwrap_or(0) == 2 {
-                        self.state = AppState::Exit;
-                    }
-                }
+                KeyCode::Enter => match self.list_state.selected().unwrap_or(2) {
+                    0 => self.state = AppState::ListLocations,
+                    2 => self.state = AppState::Exit,
+                    _ => (),
+                },
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    fn run_list_locations(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut table_state = TableState::default();
+        let rows = [
+            Row::new(vec!["Row11", "Row12", "Row13"]),
+            Row::new(vec!["Row21", "Row22", "Row23"]),
+            Row::new(vec!["Row31", "Row32", "Row33"]),
+        ];
+        let widths = [
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(10),
+        ];
+        let table = Table::new(rows, widths)
+            .block(
+                Block::bordered()
+                    .title("Inventory Manager")
+                    .title_bottom("Press 'q' or Esc to exit"),
+            )
+            .style(Style::new().white())
+            .row_highlight_style(Style::new().reversed())
+            .highlight_symbol(">>");
+
+        terminal
+            .draw(|frame| frame.render_stateful_widget(table, frame.area(), &mut table_state))?;
+
+        if let Some(key) = event::read()?.as_key_press_event() {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => self.state = AppState::TopMenu,
                 _ => {}
             }
         }
