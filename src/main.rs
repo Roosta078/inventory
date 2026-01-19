@@ -5,7 +5,7 @@ use ratatui::layout::Constraint;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Text;
 use ratatui::widgets::{Block, List, ListDirection, ListItem, ListState, Row, Table, TableState};
-use std::rc::Rc;
+
 mod db;
 
 struct App {
@@ -144,11 +144,6 @@ impl Applet for ListLocationApplet {
                     .collect::<Vec<Row>>(),
             );
         }
-        // let widths = [
-        //     Constraint::Length(5),
-        //     Constraint::Length(10),
-        //     Constraint::Length(10),
-        // ];
         let widths: Vec<u16> = Vec::new();
         let table = Table::new(rows, widths)
             .block(
@@ -254,83 +249,6 @@ impl App {
 
         Ok(())
     }
-
-    fn run_top_menu(
-        &mut self,
-        terminal: &mut DefaultTerminal,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let list = List::new(
-            self.applets
-                .iter()
-                .map(|a| a.get_name())
-                .collect::<Vec<String>>(),
-        )
-        .block(
-            Block::bordered()
-                .title("Inventory Manager")
-                .title_bottom("Press 'q' or Esc to exit"),
-        )
-        .style(Style::new().white())
-        .highlight_style(Style::new().bold())
-        .highlight_symbol(">>")
-        .repeat_highlight_symbol(true)
-        .direction(ListDirection::TopToBottom);
-
-        terminal
-            .draw(|frame| frame.render_stateful_widget(list, frame.area(), &mut self.list_state))?;
-        if let Some(key) = event::read()?.as_key_press_event() {
-            match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => self.state = AppState::Exit,
-                KeyCode::Down => self.list_state.select_next(),
-                KeyCode::Up => self.list_state.select_previous(),
-                KeyCode::Enter => match self.list_state.selected().unwrap_or(2) {
-                    0 => self.state = AppState::ListLocations,
-                    1 => self.state = AppState::ListItems,
-                    2 => self.state = AppState::Exit,
-                    _ => (),
-                },
-                _ => {}
-            }
-        }
-        Ok(())
-    }
-
-    // fn run_list_locations(
-    //     &mut self,
-    //     terminal: &mut DefaultTerminal,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     let mut table_state = TableState::default();
-    //     let rows = [
-    //         Row::new(vec!["Row11", "Row12", "Row13"]),
-    //         Row::new(vec!["Row21", "Row22", "Row23"]),
-    //         Row::new(vec!["Row31", "Row32", "Row33"]),
-    //     ];
-    //     let widths = [
-    //         Constraint::Length(5),
-    //         Constraint::Length(5),
-    //         Constraint::Length(10),
-    //     ];
-    //     let table = Table::new(rows, widths)
-    //         .block(
-    //             Block::bordered()
-    //                 .title("Inventory Manager")
-    //                 .title_bottom("Press 'q' or Esc to exit"),
-    //         )
-    //         .style(Style::new().white())
-    //         .row_highlight_style(Style::new().reversed())
-    //         .highlight_symbol(">>");
-
-    //     terminal
-    //         .draw(|frame| frame.render_stateful_widget(table, frame.area(), &mut table_state))?;
-
-    //     if let Some(key) = event::read()?.as_key_press_event() {
-    //         match key.code {
-    //             KeyCode::Char('q') | KeyCode::Esc => self.state = AppState::TopMenu,
-    //             _ => {}
-    //         }
-    //     }
-    //     Ok(())
-    // }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
