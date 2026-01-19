@@ -44,6 +44,11 @@ struct ListItemsApplet {
     exit_applet: bool,
 }
 
+struct EditLocationApplet {
+    next_state: AppState,
+    loc: db::inventory::Location,
+}
+
 impl Default for TopMenuApplet {
     fn default() -> Self {
         Self {
@@ -65,6 +70,19 @@ impl Default for ListLocationApplet {
 impl Default for ListItemsApplet {
     fn default() -> Self {
         Self { exit_applet: false }
+    }
+}
+
+impl Default for EditLocationApplet {
+    fn default() -> Self {
+        Self {
+            next_state: AppState::NoChange,
+            loc: db::inventory::Location {
+                id: 0,
+                name: String::default(),
+                comment: None,
+            },
+        }
     }
 }
 
@@ -167,7 +185,7 @@ impl Applet for ListLocationApplet {
                 KeyCode::Up => self.table_state.select_previous(),
                 KeyCode::Left => self.table_state.select_previous_column(),
                 KeyCode::Right => self.table_state.select_next_column(),
-                KeyCode::Enter => self.next_state = AppState::ListLocations, // REMOVE BEFORE FLIGHT
+                KeyCode::Enter => self.next_state = AppState::EditLocation, // REMOVE BEFORE FLIGHT
                 _ => {}
             }
         }
@@ -208,12 +226,41 @@ impl Applet for ListItemsApplet {
         }
     }
 }
+
+impl Applet for EditLocationApplet {
+    fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        _db: &Inventory,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.next_state = AppState::NoChange;
+        let text = Text::raw(self.loc.name.clone());
+        terminal.draw(|frame| frame.render_widget(text, frame.area()))?;
+        if let Some(key) = event::read()?.as_key_press_event() {
+            match key.code {
+                KeyCode::Esc => self.next_state = AppState::Exit,
+                KeyCode::Char(c) => self.loc.name.push(c),
+                KeyCode::Backspace => _ = self.loc.name.pop(),
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+    fn get_name(&self) -> String {
+        "Edit Location".to_string()
+    }
+    fn get_next_state(&self) -> AppState {
+        self.next_state.clone()
+    }
+}
+
 #[derive(Clone)]
 enum AppState {
     TopMenu,
     ListItems,
     ListLocations,
     Exit,
+    EditLocation,
     NoChange,
 }
 
@@ -238,9 +285,13 @@ impl App {
         while let Some(top_applet) = self.applets.last_mut() {
             top_applet.run(terminal, &self.db)?;
             match top_applet.get_next_state() {
+                // It is possible to create new applets until we run out of memory.  Probably should add limits at some point
                 AppState::ListItems => self.applets.push(Box::new(ListItemsApplet::default())),
                 AppState::ListLocations => {
                     self.applets.push(Box::new(ListLocationApplet::default()))
+                }
+                AppState::EditLocation => {
+                    self.applets.push(Box::new(EditLocationApplet::default()))
                 }
                 AppState::Exit => _ = self.applets.pop(),
                 _ => (),
