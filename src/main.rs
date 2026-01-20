@@ -1,10 +1,12 @@
 use crate::db::inventory::Inventory;
 use crossterm::event::{self, KeyCode, KeyEvent};
 use ratatui::DefaultTerminal;
-use ratatui::layout::Constraint;
+use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Text;
-use ratatui::widgets::{Block, List, ListDirection, ListItem, ListState, Row, Table, TableState};
+use ratatui::widgets::{
+    Block, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, TableState,
+};
 
 mod db;
 
@@ -47,6 +49,8 @@ struct ListItemsApplet {
 struct EditLocationApplet {
     next_state: AppState,
     loc: db::inventory::Location,
+    active_widget: u8,
+    cursor_position: u16,
 }
 
 impl Default for TopMenuApplet {
@@ -78,10 +82,12 @@ impl Default for EditLocationApplet {
         Self {
             next_state: AppState::NoChange,
             loc: db::inventory::Location {
-                id: 0,
-                name: String::default(),
-                comment: None,
+                id: 260126,
+                name: "Tweezers".to_string(),
+                comment: Some("ESD Safe".to_string()),
             },
+            active_widget: 0,
+            cursor_position: 0,
         }
     }
 }
@@ -235,12 +241,74 @@ impl Applet for EditLocationApplet {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
         let text = Text::raw(self.loc.name.clone());
-        terminal.draw(|frame| frame.render_widget(text, frame.area()))?;
+
+        //Prepare Draw
+        let vertical = Layout::vertical([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(1),
+        ]);
+        let id_widget = Paragraph::new(self.loc.id.to_string())
+            .style(Style::default())
+            .block(Block::bordered().title("Location ID"));
+        let name_widget = Paragraph::new(self.loc.name.to_string())
+            .style(if self.active_widget == 0 {
+                Style::default().yellow()
+            } else {
+                Style::default()
+            })
+            .block(Block::bordered().title("Name"));
+        let comment_widget = Paragraph::new(self.loc.comment.clone().unwrap_or("".to_string()))
+            .style(if self.active_widget == 1 {
+                Style::default().yellow()
+            } else {
+                Style::default()
+            })
+            .block(Block::bordered().title("Comment"));
+
+        terminal.draw(|frame| {
+            let [id_area, name_area, comment_area] = vertical.areas(frame.area());
+            frame.render_widget(id_widget, id_area);
+            frame.render_widget(name_widget, name_area);
+            frame.render_widget(comment_widget, comment_area);
+            let cursor_area = if self.active_widget == 0 {
+                name_area
+            } else {
+                comment_area
+            };
+            frame.set_cursor_position(Position::new(
+                cursor_area.x + self.cursor_position + 1,
+                cursor_area.y + 1,
+            ));
+        })?;
+
+        //Handle Input
         if let Some(key) = event::read()?.as_key_press_event() {
+            if self.active_widget == 0 {
+                match key.code {
+                    KeyCode::Char(c) => self.loc.name.push(c),
+                    KeyCode::Backspace => _ = self.loc.name.pop(),
+                    KeyCode::Left => self.cursor_position = self.cursor_position.saturating_sub(1),
+                    KeyCode::Right => {
+                        self.cursor_position = self.cursor_position.saturating_add(1).min(8)
+                    }
+                    _ => {}
+                }
+            } else {
+                match key.code {
+                    KeyCode::Char(c) => self.loc.name.push(c),
+                    KeyCode::Backspace => _ = self.loc.name.pop(),
+                    KeyCode::Left => self.cursor_position = self.cursor_position.saturating_sub(1),
+                    KeyCode::Right => {
+                        self.cursor_position = self.cursor_position.saturating_add(1).min(8)
+                    }
+                    _ => {}
+                }
+            }
             match key.code {
                 KeyCode::Esc => self.next_state = AppState::Exit,
-                KeyCode::Char(c) => self.loc.name.push(c),
-                KeyCode::Backspace => _ = self.loc.name.pop(),
+                KeyCode::Down => self.active_widget = (self.active_widget + 1).min(1),
+                KeyCode::Up => self.active_widget = self.active_widget.saturating_sub(1),
                 _ => {}
             }
         }
