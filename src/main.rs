@@ -49,6 +49,7 @@ struct ListItemsApplet {
 struct EditLocationApplet {
     next_state: AppState,
     loc: db::inventory::Location,
+    id: i64,
     cursor_position: u16,
     selection: EditLocationSelection,
 }
@@ -92,7 +93,7 @@ impl Default for ListLocationApplet {
     fn default() -> Self {
         Self {
             exit_applet: false,
-            table_state: TableState::default().with_selected_cell(Some((1, 0))),
+            table_state: TableState::default().with_selected_cell(Some((0, 0))),
             next_state: AppState::NoChange,
         }
     }
@@ -112,6 +113,23 @@ impl Default for EditLocationApplet {
                 name: "Tweezers".to_string(),
                 comment: Some("ESD Safe".to_string()),
             },
+            id: -1,
+            cursor_position: 0,
+            selection: EditLocationSelection::Name,
+        }
+    }
+}
+
+impl EditLocationApplet {
+    fn new(id: i64) -> Self {
+        Self {
+            next_state: AppState::NoChange,
+            loc: db::inventory::Location {
+                id: -1,
+                name: "".to_string(),
+                comment: None,
+            },
+            id,
             cursor_position: 0,
             selection: EditLocationSelection::Name,
         }
@@ -176,7 +194,8 @@ impl Applet for ListLocationApplet {
 
         let data = db.get_all_locations().unwrap_or_default();
 
-        let mut rows = vec![Row::new(vec!["Location ID", "Name", "Comment"])];
+        let header = Row::new(vec!["Location ID", "Name", "Comment"]);
+        let mut rows = Vec::new();
 
         if data.is_empty() {
             rows.push(Row::new(["DB ERROR", "DB ERROR", "DB_ERROR"]));
@@ -204,7 +223,8 @@ impl Applet for ListLocationApplet {
             .style(Style::new().white())
             .cell_highlight_style(Style::new().red())
             .row_highlight_style(Style::new().reversed())
-            .highlight_symbol(">>");
+            .highlight_symbol(">>")
+            .header(header);
 
         terminal.draw(|frame| {
             frame.render_stateful_widget(table, frame.area(), &mut self.table_state)
@@ -217,7 +237,10 @@ impl Applet for ListLocationApplet {
                 KeyCode::Up => self.table_state.select_previous(),
                 KeyCode::Left => self.table_state.select_previous_column(),
                 KeyCode::Right => self.table_state.select_next_column(),
-                KeyCode::Enter => self.next_state = AppState::EditLocation, // REMOVE BEFORE FLIGHT
+                KeyCode::Char('e') | KeyCode::Enter => {
+                    self.next_state =
+                        AppState::EditLocation(data[self.table_state.selected().unwrap_or(0)].id)
+                }
                 _ => {}
             }
         }
@@ -263,10 +286,17 @@ impl Applet for EditLocationApplet {
     fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
-        _db: &Inventory,
+        db: &Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
-
+        if self.id != self.loc.id {
+            if let Some(loc) = db.search_location_id(self.id) {
+                self.loc = loc;
+                if self.loc.comment.is_none() {
+                    self.loc.comment = Some("".to_string());
+                }
+            }
+        }
         //Prepare Draw
         let vertical = Layout::vertical([
             Constraint::Length(3),
@@ -346,26 +376,49 @@ impl Applet for EditLocationApplet {
                             self.loc.name.remove(self.cursor_position.into());
                         }
                     }
+                    KeyCode::Delete => {
+                        if self.cursor_position != self.loc.name.len() as u16 {
+                            self.loc.name.remove(self.cursor_position.into());
+                        }
+                    }
                     KeyCode::Left => self.cursor_position = self.cursor_position.saturating_sub(1),
                     KeyCode::Right => {
-                        self.cursor_position = self.cursor_position.saturating_add(1).min(8)
+                        self.cursor_position = self
+                            .cursor_position
+                            .saturating_add(1)
+                            .min(self.loc.name.len() as u16)
                     }
                     _ => {}
                 },
 
                 EditLocationSelection::Comment => match key.code {
                     KeyCode::Char(c) => {
-                        self.loc.name.insert(self.cursor_position.into(), c);
+                        let mut comment = self.loc.comment.clone().unwrap_or_default();
+                        comment.insert(self.cursor_position.into(), c);
+                        self.loc.comment = Some(comment);
                         self.cursor_position += 1
                     }
                     KeyCode::Backspace => {
                         if self.cursor_position != 0 {
                             self.cursor_position -= 1;
+                            let mut comment = self.loc.comment.clone().unwrap_or_default();
+                            comment.remove(self.cursor_position.into());
+                            self.loc.comment = Some(comment);
+                        }
+                    }
+                    KeyCode::Delete => {
+                        if self.cursor_position != self.loc.comment.as_ref().unwrap().len() as u16 {
+                            let mut comment = self.loc.comment.clone().unwrap_or_default();
+                            comment.remove(self.cursor_position.into());
+                            self.loc.comment = Some(comment);
                         }
                     }
                     KeyCode::Left => self.cursor_position = self.cursor_position.saturating_sub(1),
                     KeyCode::Right => {
-                        self.cursor_position = self.cursor_position.saturating_add(1).min(8)
+                        self.cursor_position = self
+                            .cursor_position
+                            .saturating_add(1)
+                            .min(self.loc.comment.as_ref().unwrap().len() as u16)
                     }
                     _ => {}
                 },
@@ -374,7 +427,13 @@ impl Applet for EditLocationApplet {
                     _ => (),
                 },
                 EditLocationSelection::Save => match key.code {
-                    KeyCode::Enter => self.next_state = AppState::Exit, //TODO implement save
+                    KeyCode::Enter => {
+                        self.next_state = if self.save_location(db).is_ok() {
+                            AppState::Exit
+                        } else {
+                            AppState::NoChange
+                        }
+                    }
                     _ => (),
                 },
             }
@@ -395,6 +454,12 @@ impl Applet for EditLocationApplet {
         self.next_state.clone()
     }
 }
+impl EditLocationApplet {
+    fn save_location(&self, db: &Inventory) -> Result<(), Box<dyn std::error::Error>> {
+        db.edit_location(&self.loc)?;
+        Ok(())
+    }
+}
 
 #[derive(Clone)]
 enum AppState {
@@ -402,7 +467,7 @@ enum AppState {
     ListItems,
     ListLocations,
     Exit,
-    EditLocation,
+    EditLocation(i64),
     NoChange,
 }
 
@@ -432,8 +497,8 @@ impl App {
                 AppState::ListLocations => {
                     self.applets.push(Box::new(ListLocationApplet::default()))
                 }
-                AppState::EditLocation => {
-                    self.applets.push(Box::new(EditLocationApplet::default()))
+                AppState::EditLocation(id) => {
+                    self.applets.push(Box::new(EditLocationApplet::new(id)))
                 }
                 AppState::Exit => _ = self.applets.pop(),
                 _ => (),
