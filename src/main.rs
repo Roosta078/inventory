@@ -1,4 +1,4 @@
-use crate::db::inventory::Inventory;
+use crate::db::inventory::{Inventory, Location};
 use crossterm::event::{self, KeyCode, KeyEvent};
 use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout, Position};
@@ -29,7 +29,7 @@ pub trait Applet {
     }
     fn get_name(&self) -> String;
     fn get_next_state(&self) -> AppState;
-    fn refresh(&self) {}
+    fn refresh(&mut self, _db: &Inventory) {}
 }
 
 struct TopMenuApplet {
@@ -40,6 +40,7 @@ struct TopMenuApplet {
 struct ListLocationApplet {
     exit_applet: bool,
     table_state: TableState,
+    locations: Vec<Location>,
     next_state: AppState,
 }
 struct ListItemsApplet {
@@ -95,6 +96,7 @@ impl Default for ListLocationApplet {
             exit_applet: false,
             table_state: TableState::default().with_selected_cell(Some((0, 0))),
             next_state: AppState::NoChange,
+            locations: Vec::new(),
         }
     }
 }
@@ -192,16 +194,17 @@ impl Applet for ListLocationApplet {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
 
-        let data = db.get_all_locations().unwrap_or_default();
+        //let data = db.get_all_locations().unwrap_or_default();
 
         let header = Row::new(vec!["Location ID", "Name", "Comment"]);
         let mut rows = Vec::new();
 
-        if data.is_empty() {
+        if self.locations.is_empty() {
             rows.push(Row::new(["DB ERROR", "DB ERROR", "DB_ERROR"]));
         } else {
             rows.append(
-                &mut data
+                &mut self
+                    .locations
                     .iter()
                     .map(|l| {
                         Row::new([
@@ -238,8 +241,9 @@ impl Applet for ListLocationApplet {
                 KeyCode::Left => self.table_state.select_previous_column(),
                 KeyCode::Right => self.table_state.select_next_column(),
                 KeyCode::Char('e') | KeyCode::Enter => {
-                    self.next_state =
-                        AppState::EditLocation(data[self.table_state.selected().unwrap_or(0)].id)
+                    self.next_state = AppState::EditLocation(
+                        self.locations[self.table_state.selected().unwrap_or(0)].id,
+                    )
                 }
                 _ => {}
             }
@@ -251,6 +255,9 @@ impl Applet for ListLocationApplet {
     }
     fn get_next_state(&self) -> AppState {
         self.next_state.clone()
+    }
+    fn refresh(&mut self, db: &Inventory) {
+        self.locations = db.get_all_locations().unwrap_or_default();
     }
 }
 impl Applet for ListItemsApplet {
@@ -501,7 +508,10 @@ impl App {
                     self.applets.push(Box::new(EditLocationApplet::new(id)))
                 }
                 AppState::Exit => _ = self.applets.pop(),
-                _ => (),
+                _ => continue,
+            }
+            if let Some(new_top) = self.applets.last_mut() {
+                new_top.refresh(&self.db);
             }
         }
 
