@@ -80,14 +80,7 @@ impl Applet for CreateLocationApplet {
         db: &inventory::Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
-        // if self.id != self.loc.id {
-        //     if let Some(loc) = db.search_location_id(self.id) {
-        //         self.loc = loc;
-        //         if self.loc.comment.is_none() {
-        //             self.loc.comment = Some("".to_string());
-        //         }
-        //     }
-        // }
+
         //Prepare Draw
         let vertical = Layout::vertical([
             Constraint::Length(3),
