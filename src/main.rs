@@ -501,8 +501,14 @@ impl Applet for EditLocationApplet {
 
             match key.code {
                 KeyCode::Esc => self.next_state = AppState::Exit,
-                KeyCode::Down | KeyCode::Tab => self.selection = self.selection.next(),
-                KeyCode::Up => self.selection = self.selection.previous(),
+                KeyCode::Down | KeyCode::Tab => {
+                    self.selection = self.selection.next();
+                    self.cursor_position = 0
+                }
+                KeyCode::Up => {
+                    self.selection = self.selection.previous();
+                    self.cursor_position = 0
+                }
                 _ => {}
             }
         }
@@ -705,8 +711,14 @@ impl Applet for CreateLocationApplet {
 
             match key.code {
                 KeyCode::Esc => self.next_state = AppState::Exit,
-                KeyCode::Down | KeyCode::Tab => self.selection = self.selection.next(),
-                KeyCode::Up => self.selection = self.selection.previous(),
+                KeyCode::Down | KeyCode::Tab => {
+                    self.selection = self.selection.next();
+                    self.cursor_position = 0
+                }
+                KeyCode::Up => {
+                    self.selection = self.selection.previous();
+                    self.cursor_position = 0
+                }
                 _ => {}
             }
         }
