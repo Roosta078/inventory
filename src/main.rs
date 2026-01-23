@@ -734,6 +734,17 @@ impl Applet for CreateLocationApplet {
 
 impl CreateLocationApplet {
     fn save_location(&self, db: &Inventory) -> Result<(), Box<dyn std::error::Error>> {
+        let comment_opt = if self.comment.is_empty() {
+            None
+        } else {
+            Some(self.comment.clone())
+        };
+        let new_location = Location {
+            id: self.id.parse()?,
+            name: self.name.clone(),
+            comment: comment_opt,
+        };
+        db.add_location(&new_location)?;
         Ok(())
     }
 }
