@@ -1,25 +1,10 @@
-use crossterm::event::{self, KeyCode, KeyEvent};
 use ratatui::DefaultTerminal;
-use ratatui::layout::{Constraint, Layout, Position};
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Text;
-use ratatui::widgets::{
-    Block, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, TableState,
-};
-
 mod applets;
-use crate::db::inventory::{Inventory, Location};
-
+use crate::db::inventory::Inventory;
 mod db;
-// use applets::{
-//     Applet, CreateLocationApplet, EditLocationApplet, ListItemsApplet, ListLocationsApplet,
-//     TopMenuApplet,
-// };
 
 struct App {
-    state: AppState,
     applets: Vec<Box<dyn applets::Applet>>,
-    list_state: ListState,
     db: Inventory,
 }
 
@@ -46,9 +31,7 @@ impl Default for App {
 impl App {
     fn new() -> Self {
         Self {
-            state: AppState::TopMenu,
             applets: Vec::new(),
-            list_state: ListState::default(),
             db: Inventory::open_in_memory().unwrap(),
         }
     }
