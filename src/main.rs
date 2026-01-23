@@ -1,10 +1,12 @@
-use crate::db::inventory::Inventory;
+use crate::db::inventory::{Inventory, Location};
 use crossterm::event::{self, KeyCode, KeyEvent};
 use ratatui::DefaultTerminal;
-use ratatui::layout::Constraint;
+use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Text;
-use ratatui::widgets::{Block, List, ListDirection, ListItem, ListState, Row, Table, TableState};
+use ratatui::widgets::{
+    Block, List, ListDirection, ListItem, ListState, Paragraph, Row, Table, TableState,
+};
 
 mod db;
 
@@ -27,7 +29,7 @@ pub trait Applet {
     }
     fn get_name(&self) -> String;
     fn get_next_state(&self) -> AppState;
-    fn refresh(&self) {}
+    fn refresh(&mut self, _db: &Inventory) {}
 }
 
 struct TopMenuApplet {
@@ -38,10 +40,45 @@ struct TopMenuApplet {
 struct ListLocationApplet {
     exit_applet: bool,
     table_state: TableState,
+    locations: Vec<Location>,
     next_state: AppState,
 }
 struct ListItemsApplet {
     exit_applet: bool,
+}
+
+struct EditLocationApplet {
+    next_state: AppState,
+    loc: db::inventory::Location,
+    id: i64,
+    cursor_position: u16,
+    selection: EditLocationSelection,
+}
+#[derive(PartialEq)]
+enum EditLocationSelection {
+    Name,
+    Comment,
+    Cancel,
+    Save,
+}
+
+impl EditLocationSelection {
+    fn next(&self) -> Self {
+        match self {
+            EditLocationSelection::Name => EditLocationSelection::Comment,
+            EditLocationSelection::Comment => EditLocationSelection::Cancel,
+            EditLocationSelection::Cancel => EditLocationSelection::Save,
+            EditLocationSelection::Save => EditLocationSelection::Name,
+        }
+    }
+    fn previous(&self) -> Self {
+        match self {
+            EditLocationSelection::Name => EditLocationSelection::Save,
+            EditLocationSelection::Comment => EditLocationSelection::Name,
+            EditLocationSelection::Cancel => EditLocationSelection::Comment,
+            EditLocationSelection::Save => EditLocationSelection::Cancel,
+        }
+    }
 }
 
 impl Default for TopMenuApplet {
@@ -57,14 +94,47 @@ impl Default for ListLocationApplet {
     fn default() -> Self {
         Self {
             exit_applet: false,
-            table_state: TableState::default().with_selected_cell(Some((1, 0))),
+            table_state: TableState::default().with_selected_cell(Some((0, 0))),
             next_state: AppState::NoChange,
+            locations: Vec::new(),
         }
     }
 }
 impl Default for ListItemsApplet {
     fn default() -> Self {
         Self { exit_applet: false }
+    }
+}
+
+impl Default for EditLocationApplet {
+    fn default() -> Self {
+        Self {
+            next_state: AppState::NoChange,
+            loc: db::inventory::Location {
+                id: 260126,
+                name: "Tweezers".to_string(),
+                comment: Some("ESD Safe".to_string()),
+            },
+            id: -1,
+            cursor_position: 0,
+            selection: EditLocationSelection::Name,
+        }
+    }
+}
+
+impl EditLocationApplet {
+    fn new(id: i64) -> Self {
+        Self {
+            next_state: AppState::NoChange,
+            loc: db::inventory::Location {
+                id: -1,
+                name: "".to_string(),
+                comment: None,
+            },
+            id,
+            cursor_position: 0,
+            selection: EditLocationSelection::Name,
+        }
     }
 }
 
@@ -122,17 +192,19 @@ impl Applet for ListLocationApplet {
         terminal: &mut DefaultTerminal,
         db: &Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.exit_applet = false;
+        self.next_state = AppState::NoChange;
 
-        let data = db.get_all_locations().unwrap_or_default();
+        //let data = db.get_all_locations().unwrap_or_default();
 
-        let mut rows = vec![Row::new(vec!["Location ID", "Name", "Comment"])];
+        let header = Row::new(vec!["Location ID", "Name", "Comment"]);
+        let mut rows = Vec::new();
 
-        if data.is_empty() {
+        if self.locations.is_empty() {
             rows.push(Row::new(["DB ERROR", "DB ERROR", "DB_ERROR"]));
         } else {
             rows.append(
-                &mut data
+                &mut self
+                    .locations
                     .iter()
                     .map(|l| {
                         Row::new([
@@ -154,7 +226,8 @@ impl Applet for ListLocationApplet {
             .style(Style::new().white())
             .cell_highlight_style(Style::new().red())
             .row_highlight_style(Style::new().reversed())
-            .highlight_symbol(">>");
+            .highlight_symbol(">>")
+            .header(header);
 
         terminal.draw(|frame| {
             frame.render_stateful_widget(table, frame.area(), &mut self.table_state)
@@ -167,7 +240,11 @@ impl Applet for ListLocationApplet {
                 KeyCode::Up => self.table_state.select_previous(),
                 KeyCode::Left => self.table_state.select_previous_column(),
                 KeyCode::Right => self.table_state.select_next_column(),
-                KeyCode::Enter => self.next_state = AppState::ListLocations, // REMOVE BEFORE FLIGHT
+                KeyCode::Char('e') | KeyCode::Enter => {
+                    self.next_state = AppState::EditLocation(
+                        self.locations[self.table_state.selected().unwrap_or(0)].id,
+                    )
+                }
                 _ => {}
             }
         }
@@ -178,6 +255,9 @@ impl Applet for ListLocationApplet {
     }
     fn get_next_state(&self) -> AppState {
         self.next_state.clone()
+    }
+    fn refresh(&mut self, db: &Inventory) {
+        self.locations = db.get_all_locations().unwrap_or_default();
     }
 }
 impl Applet for ListItemsApplet {
@@ -208,12 +288,193 @@ impl Applet for ListItemsApplet {
         }
     }
 }
+
+impl Applet for EditLocationApplet {
+    fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        db: &Inventory,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.next_state = AppState::NoChange;
+        if self.id != self.loc.id {
+            if let Some(loc) = db.search_location_id(self.id) {
+                self.loc = loc;
+                if self.loc.comment.is_none() {
+                    self.loc.comment = Some("".to_string());
+                }
+            }
+        }
+        //Prepare Draw
+        let vertical = Layout::vertical([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(1),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ]);
+        let id_widget = Paragraph::new(self.loc.id.to_string())
+            .style(Style::default())
+            .block(Block::bordered().title("Location ID"));
+        let name_widget = Paragraph::new(self.loc.name.to_string())
+            .style(if self.selection == EditLocationSelection::Name {
+                Style::default().yellow()
+            } else {
+                Style::default()
+            })
+            .block(Block::bordered().title("Name"));
+        let comment_widget = Paragraph::new(self.loc.comment.clone().unwrap_or("".to_string()))
+            .style(if self.selection == EditLocationSelection::Comment {
+                Style::default().yellow()
+            } else {
+                Style::default()
+            })
+            .block(Block::bordered().title("Comment"));
+        let cancel_button = Paragraph::new("Cancel".to_string())
+            .style(if self.selection == EditLocationSelection::Cancel {
+                Style::default().yellow()
+            } else {
+                Style::default()
+            })
+            .block(Block::bordered());
+        let save_button = Paragraph::new("Save Changes".to_string())
+            .style(if self.selection == EditLocationSelection::Save {
+                Style::default().yellow()
+            } else {
+                Style::default()
+            })
+            .block(Block::bordered());
+
+        terminal.draw(|frame| {
+            let [id_area, name_area, comment_area, cancel_area, save_area] =
+                vertical.areas(frame.area());
+            frame.render_widget(id_widget, id_area);
+            frame.render_widget(name_widget, name_area);
+            frame.render_widget(comment_widget, comment_area);
+            frame.render_widget(cancel_button, cancel_area);
+            frame.render_widget(save_button, save_area);
+            match self.selection {
+                EditLocationSelection::Name => {
+                    frame.set_cursor_position(Position::new(
+                        name_area.x + self.cursor_position + 1,
+                        name_area.y + 1,
+                    ));
+                }
+                EditLocationSelection::Comment => {
+                    frame.set_cursor_position(Position::new(
+                        comment_area.x + self.cursor_position + 1,
+                        comment_area.y + 1,
+                    ));
+                }
+                _ => (),
+            }
+        })?;
+
+        //Handle Input
+        if let Some(key) = event::read()?.as_key_press_event() {
+            match self.selection {
+                EditLocationSelection::Name => match key.code {
+                    KeyCode::Char(c) => {
+                        self.loc.name.insert(self.cursor_position.into(), c);
+                        self.cursor_position += 1
+                    }
+                    KeyCode::Backspace => {
+                        if self.cursor_position != 0 {
+                            self.cursor_position -= 1;
+                            self.loc.name.remove(self.cursor_position.into());
+                        }
+                    }
+                    KeyCode::Delete => {
+                        if self.cursor_position != self.loc.name.len() as u16 {
+                            self.loc.name.remove(self.cursor_position.into());
+                        }
+                    }
+                    KeyCode::Left => self.cursor_position = self.cursor_position.saturating_sub(1),
+                    KeyCode::Right => {
+                        self.cursor_position = self
+                            .cursor_position
+                            .saturating_add(1)
+                            .min(self.loc.name.len() as u16)
+                    }
+                    _ => {}
+                },
+
+                EditLocationSelection::Comment => match key.code {
+                    KeyCode::Char(c) => {
+                        let mut comment = self.loc.comment.clone().unwrap_or_default();
+                        comment.insert(self.cursor_position.into(), c);
+                        self.loc.comment = Some(comment);
+                        self.cursor_position += 1
+                    }
+                    KeyCode::Backspace => {
+                        if self.cursor_position != 0 {
+                            self.cursor_position -= 1;
+                            let mut comment = self.loc.comment.clone().unwrap_or_default();
+                            comment.remove(self.cursor_position.into());
+                            self.loc.comment = Some(comment);
+                        }
+                    }
+                    KeyCode::Delete => {
+                        if self.cursor_position != self.loc.comment.as_ref().unwrap().len() as u16 {
+                            let mut comment = self.loc.comment.clone().unwrap_or_default();
+                            comment.remove(self.cursor_position.into());
+                            self.loc.comment = Some(comment);
+                        }
+                    }
+                    KeyCode::Left => self.cursor_position = self.cursor_position.saturating_sub(1),
+                    KeyCode::Right => {
+                        self.cursor_position = self
+                            .cursor_position
+                            .saturating_add(1)
+                            .min(self.loc.comment.as_ref().unwrap().len() as u16)
+                    }
+                    _ => {}
+                },
+                EditLocationSelection::Cancel => match key.code {
+                    KeyCode::Enter => self.next_state = AppState::Exit,
+                    _ => (),
+                },
+                EditLocationSelection::Save => match key.code {
+                    KeyCode::Enter => {
+                        self.next_state = if self.save_location(db).is_ok() {
+                            AppState::Exit
+                        } else {
+                            AppState::NoChange
+                        }
+                    }
+                    _ => (),
+                },
+            }
+
+            match key.code {
+                KeyCode::Esc => self.next_state = AppState::Exit,
+                KeyCode::Down | KeyCode::Tab => self.selection = self.selection.next(),
+                KeyCode::Up => self.selection = self.selection.previous(),
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+    fn get_name(&self) -> String {
+        "Edit Location".to_string()
+    }
+    fn get_next_state(&self) -> AppState {
+        self.next_state.clone()
+    }
+}
+impl EditLocationApplet {
+    fn save_location(&self, db: &Inventory) -> Result<(), Box<dyn std::error::Error>> {
+        db.edit_location(&self.loc)?;
+        Ok(())
+    }
+}
+
 #[derive(Clone)]
 enum AppState {
     TopMenu,
     ListItems,
     ListLocations,
     Exit,
+    EditLocation(i64),
     NoChange,
 }
 
@@ -238,12 +499,19 @@ impl App {
         while let Some(top_applet) = self.applets.last_mut() {
             top_applet.run(terminal, &self.db)?;
             match top_applet.get_next_state() {
+                // It is possible to create new applets until we run out of memory.  Probably should add limits at some point
                 AppState::ListItems => self.applets.push(Box::new(ListItemsApplet::default())),
                 AppState::ListLocations => {
                     self.applets.push(Box::new(ListLocationApplet::default()))
                 }
+                AppState::EditLocation(id) => {
+                    self.applets.push(Box::new(EditLocationApplet::new(id)))
+                }
                 AppState::Exit => _ = self.applets.pop(),
-                _ => (),
+                _ => continue,
+            }
+            if let Some(new_top) = self.applets.last_mut() {
+                new_top.refresh(&self.db);
             }
         }
 
