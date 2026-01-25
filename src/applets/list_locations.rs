@@ -7,7 +7,6 @@ use ratatui::style::Style;
 use ratatui::widgets::{Block, Row, Table, TableState};
 
 pub struct ListLocationsApplet {
-    exit_applet: bool,
     table_state: TableState,
     locations: Vec<Location>,
     next_state: AppState,
@@ -16,7 +15,6 @@ pub struct ListLocationsApplet {
 impl Default for ListLocationsApplet {
     fn default() -> Self {
         Self {
-            exit_applet: false,
             table_state: TableState::default().with_selected_cell(Some((0, 0))),
             next_state: AppState::NoChange,
             locations: Vec::new(),
@@ -28,7 +26,7 @@ impl Applet for ListLocationsApplet {
     fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
-        db: &Inventory,
+        _db: &Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
 
@@ -88,13 +86,24 @@ impl Applet for ListLocationsApplet {
         }
         Ok(())
     }
-    fn get_name(&self) -> String {
-        "List Locations".to_string()
-    }
+
     fn get_next_state(&self) -> AppState {
         self.next_state.clone()
     }
     fn refresh(&mut self, db: &Inventory) {
         self.locations = db.get_all_locations().unwrap_or_default();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_default() {
+        let my_applet = ListLocationsApplet::default();
+        assert!(my_applet.locations.is_empty());
+        assert_eq!(my_applet.next_state, AppState::NoChange);
+        assert_eq!(my_applet.table_state.selected(), Some(0));
+        assert_eq!(my_applet.table_state.selected_column(), Some(0));
     }
 }

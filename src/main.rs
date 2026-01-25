@@ -8,13 +8,14 @@ struct App {
     db: Inventory,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 enum AppState {
     TopMenu,
     ListItems,
     ListLocations,
     Exit,
     EditLocation(i64),
+    EditItem(i64),
     NoChange,
     CreateLocation,
 }
@@ -72,7 +73,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             name: format!("location{i}").to_string(),
             comment: Some(format!("comment{i}").to_string()),
         };
+        let item = db::inventory::Item {
+            id: i + 100,
+            name: format!("item{i}").to_string(),
+            comment: Some(format!("comment{i}").to_string()),
+            location_id: Some(i),
+        };
         myapp.db.add_location(&loc)?;
+        myapp.db.add_item(&item)?;
     }
 
     ratatui::run(|terminal| myapp.run(terminal))

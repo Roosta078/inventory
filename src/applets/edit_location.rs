@@ -248,9 +248,7 @@ impl Applet for EditLocationApplet {
         }
         Ok(())
     }
-    fn get_name(&self) -> String {
-        "Edit Location".to_string()
-    }
+
     fn get_next_state(&self) -> AppState {
         self.next_state.clone()
     }
