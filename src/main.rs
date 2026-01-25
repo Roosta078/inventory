@@ -18,6 +18,7 @@ enum AppState {
     EditItem(i64),
     NoChange,
     CreateLocation,
+    Error(String),
 }
 
 impl Default for App {
@@ -56,6 +57,9 @@ impl App {
                 AppState::CreateLocation => self
                     .applets
                     .push(Box::new(applets::CreateLocationApplet::new())),
+                AppState::Error(e) => self
+                    .applets
+                    .push(Box::new(applets::ErrorApplet::new(e.as_str()))),
                 AppState::Exit => _ = self.applets.pop(),
                 _ => continue,
             }
