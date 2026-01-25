@@ -50,6 +50,9 @@ impl App {
                 AppState::EditLocation(id) => self
                     .applets
                     .push(Box::new(applets::EditLocationApplet::new(id))),
+                AppState::EditItem(id) => self
+                    .applets
+                    .push(Box::new(applets::EditItemApplet::new(id))),
                 AppState::CreateLocation => self
                     .applets
                     .push(Box::new(applets::CreateLocationApplet::new())),
