@@ -18,6 +18,7 @@ enum AppState {
     EditItem(i64),
     NoChange,
     CreateLocation,
+    Error(String),
 }
 
 impl Default for App {
@@ -38,26 +39,33 @@ impl App {
     }
     fn run(mut self, terminal: &mut DefaultTerminal) -> Result<(), Box<dyn std::error::Error>> {
         while let Some(top_applet) = self.applets.last_mut() {
-            top_applet.run(terminal, &self.db)?;
-            match top_applet.get_next_state() {
-                // It is possible to create new applets until we run out of memory.  Probably should add limits at some point
-                AppState::ListItems => self
-                    .applets
-                    .push(Box::new(applets::ListItemsApplet::default())),
-                AppState::ListLocations => self
-                    .applets
-                    .push(Box::new(applets::ListLocationsApplet::default())),
-                AppState::EditLocation(id) => self
-                    .applets
-                    .push(Box::new(applets::EditLocationApplet::new(id))),
-                AppState::EditItem(id) => self
-                    .applets
-                    .push(Box::new(applets::EditItemApplet::new(id))),
-                AppState::CreateLocation => self
-                    .applets
-                    .push(Box::new(applets::CreateLocationApplet::new())),
-                AppState::Exit => _ = self.applets.pop(),
-                _ => continue,
+            if let Err(e) = top_applet.run(terminal, &self.db) {
+                self.applets
+                    .push(Box::new(applets::ErrorApplet::new(e.to_string())))
+            } else {
+                match top_applet.get_next_state() {
+                    // It is possible to create new applets until we run out of memory.  Probably should add limits at some point
+                    AppState::ListItems => self
+                        .applets
+                        .push(Box::new(applets::ListItemsApplet::default())),
+                    AppState::ListLocations => self
+                        .applets
+                        .push(Box::new(applets::ListLocationsApplet::default())),
+                    AppState::EditLocation(id) => self
+                        .applets
+                        .push(Box::new(applets::EditLocationApplet::new(id))),
+                    AppState::EditItem(id) => self
+                        .applets
+                        .push(Box::new(applets::EditItemApplet::new(id))),
+                    AppState::CreateLocation => self
+                        .applets
+                        .push(Box::new(applets::CreateLocationApplet::new())),
+                    AppState::Error(msg) => {
+                        self.applets.push(Box::new(applets::ErrorApplet::new(msg)))
+                    }
+                    AppState::Exit => _ = self.applets.pop(),
+                    _ => continue,
+                }
             }
             if let Some(new_top) = self.applets.last_mut() {
                 new_top.refresh(&self.db);
