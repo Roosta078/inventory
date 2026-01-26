@@ -26,23 +26,17 @@ impl Applet for TopMenuApplet {
         _db: &Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
-        let list = List::new([
-            "List Locations",
-            "List Items",
-            "Create Location",
-            "Exit",
-            "Test Error",
-        ])
-        .block(
-            Block::bordered()
-                .title("Inventory Manager")
-                .title_bottom("Press 'q' or Esc to exit"),
-        )
-        .style(Style::new().white())
-        .highlight_style(Style::new().bold())
-        .highlight_symbol(">>")
-        .repeat_highlight_symbol(true)
-        .direction(ListDirection::TopToBottom);
+        let list = List::new(["List Locations", "List Items", "Create Location", "Exit"])
+            .block(
+                Block::bordered()
+                    .title("Inventory Manager")
+                    .title_bottom("Press 'q' or Esc to exit"),
+            )
+            .style(Style::new().white())
+            .highlight_style(Style::new().bold())
+            .highlight_symbol(">>")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::TopToBottom);
 
         terminal
             .draw(|frame| frame.render_stateful_widget(list, frame.area(), &mut self.list_state))?;
@@ -56,7 +50,6 @@ impl Applet for TopMenuApplet {
                     1 => self.next_state = AppState::ListItems,
                     2 => self.next_state = AppState::CreateLocation,
                     3 => self.next_state = AppState::Exit,
-                    4 => self.next_state = AppState::Error("Something happened".to_string()),
                     _ => (),
                 },
                 _ => {}
