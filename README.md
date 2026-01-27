@@ -1,6 +1,6 @@
 # Inventory Management Software (working on a better title)
 
-Very early work in progress.  Utilizes rusqlite to manage a database.  There is a ratatui for interacting with it.  Currently very minimal functionality
+Very early work in progress.  Utilizes rusqlite to manage a database.  There is a ratatui for interacting with it.  Currently very minimal functionality.  Currently, the databases are all done in memory to provide a consistent, repeatable enviornemt for development.  This means that the data is not stored anywhere.  Before actual use, this needs to be swapped to use the disk.
 
 
 ## Application Structure
