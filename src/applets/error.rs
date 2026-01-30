@@ -1,5 +1,3 @@
-use std::io::Error;
-
 use super::applet::Applet;
 use crate::AppState;
 use crate::db::inventory::{self, Inventory};
@@ -15,7 +13,7 @@ pub struct ErrorApplet {
     selection: ErrorSelection,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum ErrorSelection {
     Accept,
 }
@@ -85,5 +83,27 @@ impl Applet for ErrorApplet {
     }
     fn get_next_state(&self) -> AppState {
         self.next_state.clone()
+    }
+}
+
+#[cfg(test)]
+mod error_tests {
+    use super::*;
+    #[test]
+    fn test_creation() {
+        let my_applet = ErrorApplet::new("msg".into());
+        assert_eq!(my_applet.next_state, AppState::NoChange);
+        assert_eq!(my_applet.error_text, "msg".to_string());
+        assert_eq!(my_applet.selection, ErrorSelection::Accept);
+    }
+    #[test]
+    fn test_trait_functions() {
+        let mut my_applet = ErrorApplet::new("msg".into());
+        let my_inv = Inventory::open_in_memory().unwrap();
+        my_applet.refresh(&my_inv); //ensure it doesn't panic
+
+        assert_eq!(my_applet.next_state, AppState::NoChange);
+
+        //would like to test run, but not sure how
     }
 }

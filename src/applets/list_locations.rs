@@ -4,7 +4,7 @@ use crate::db::inventory::{Inventory, Location};
 use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, Row, Table, TableState};
+use ratatui::widgets::{Block, Padding, Row, Table, TableState};
 
 pub struct ListLocationsApplet {
     table_state: TableState,
@@ -57,7 +57,9 @@ impl Applet for ListLocationsApplet {
             .block(
                 Block::bordered()
                     .title("Inventory Manager - List Locations")
-                    .title_bottom("Press 'q' or Esc to exit"),
+                    .title_bottom("Press 'q' or Esc to exit")
+                    .border_type(ratatui::widgets::BorderType::Thick)
+                    .padding(Padding::horizontal(1)),
             )
             .style(Style::new().white())
             .cell_highlight_style(Style::new().red())

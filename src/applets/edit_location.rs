@@ -5,7 +5,7 @@ use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, Padding, Paragraph};
 
 pub struct EditLocationApplet {
     next_state: AppState,
@@ -100,6 +100,11 @@ impl Applet for EditLocationApplet {
             Constraint::Length(3),
             Constraint::Length(3),
         ]);
+        let border = Block::bordered()
+            .title_top("Inventory Manager - Edit Location")
+            .title_bottom("Press 'q' or Esc to exit")
+            .border_type(ratatui::widgets::BorderType::Thick)
+            .padding(Padding::horizontal(1));
         let id_widget = Paragraph::new(self.loc.id.to_string())
             .style(Style::default())
             .block(Block::bordered().title("Location ID"));
@@ -133,8 +138,10 @@ impl Applet for EditLocationApplet {
             .block(Block::bordered());
 
         terminal.draw(|frame| {
+            let inner_area = border.inner(frame.area());
             let [id_area, name_area, comment_area, cancel_area, save_area] =
-                vertical.areas(frame.area());
+                vertical.areas(inner_area);
+            frame.render_widget(border, frame.area());
             frame.render_widget(id_widget, id_area);
             frame.render_widget(name_widget, name_area);
             frame.render_widget(comment_widget, comment_area);

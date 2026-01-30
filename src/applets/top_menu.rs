@@ -4,7 +4,7 @@ use crate::db::inventory::Inventory;
 use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, List, ListDirection, ListState};
+use ratatui::widgets::{Block, List, ListDirection, ListState, Padding};
 pub struct TopMenuApplet {
     list_state: ListState,
     next_state: AppState,
@@ -26,17 +26,25 @@ impl Applet for TopMenuApplet {
         _db: &Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
-        let list = List::new(["List Locations", "List Items", "Create Location", "Exit"])
-            .block(
-                Block::bordered()
-                    .title("Inventory Manager")
-                    .title_bottom("Press 'q' or Esc to exit"),
-            )
-            .style(Style::new().white())
-            .highlight_style(Style::new().bold())
-            .highlight_symbol(">>")
-            .repeat_highlight_symbol(true)
-            .direction(ListDirection::TopToBottom);
+        let list = List::new([
+            "List Locations",
+            "List Items",
+            "Create Location",
+            "Create Item",
+            "Exit",
+        ])
+        .block(
+            Block::bordered()
+                .title("Inventory Manager")
+                .title_bottom("Press 'q' or Esc to exit")
+                .border_type(ratatui::widgets::BorderType::Thick)
+                .padding(Padding::horizontal(1)),
+        )
+        .style(Style::new().white())
+        .highlight_style(Style::new().bold())
+        .highlight_symbol(">>")
+        .repeat_highlight_symbol(true)
+        .direction(ListDirection::TopToBottom);
 
         terminal
             .draw(|frame| frame.render_stateful_widget(list, frame.area(), &mut self.list_state))?;
@@ -49,7 +57,8 @@ impl Applet for TopMenuApplet {
                     0 => self.next_state = AppState::ListLocations,
                     1 => self.next_state = AppState::ListItems,
                     2 => self.next_state = AppState::CreateLocation,
-                    3 => self.next_state = AppState::Exit,
+                    3 => self.next_state = AppState::CreateItem,
+                    4 => self.next_state = AppState::Exit,
                     _ => (),
                 },
                 _ => {}

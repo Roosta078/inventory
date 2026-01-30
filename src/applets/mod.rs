@@ -1,4 +1,5 @@
 pub mod applet;
+pub mod create_item;
 pub mod create_location;
 pub mod edit_item;
 pub mod edit_location;
@@ -8,6 +9,7 @@ pub mod list_locations;
 pub mod top_menu;
 
 pub use self::applet::Applet;
+pub use self::create_item::CreateItemApplet;
 pub use self::create_location::CreateLocationApplet;
 pub use self::edit_item::EditItemApplet;
 pub use self::edit_location::EditLocationApplet;

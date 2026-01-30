@@ -5,7 +5,7 @@ use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, Padding, Paragraph};
 use std::error;
 use std::fmt;
 
@@ -129,6 +129,11 @@ impl Applet for EditItemApplet {
             Constraint::Length(3),
             Constraint::Length(3),
         ]);
+        let border = Block::bordered()
+            .title_top("Inventory Manager - Edit Item")
+            .title_bottom("Press 'q' or Esc to exit")
+            .border_type(ratatui::widgets::BorderType::Thick)
+            .padding(Padding::horizontal(1));
         let id_widget = Paragraph::new(self.item.id.to_string())
             .style(Style::default().bold())
             .block(Block::bordered().title("Item ID"));
@@ -169,6 +174,7 @@ impl Applet for EditItemApplet {
             .block(Block::bordered());
 
         terminal.draw(|frame| {
+            let inner_area = border.inner(frame.area());
             let [
                 id_area,
                 name_area,
@@ -176,7 +182,8 @@ impl Applet for EditItemApplet {
                 location_area,
                 cancel_area,
                 save_area,
-            ] = vertical.areas(frame.area());
+            ] = vertical.areas(inner_area);
+            frame.render_widget(border, frame.area());
             frame.render_widget(id_widget, id_area);
             frame.render_widget(name_widget, name_area);
             frame.render_widget(comment_widget, comment_area);
