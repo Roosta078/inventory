@@ -8,5 +8,5 @@
 - [x] Add Border around Edit Item screen
 - [x] Add Border around Edit Location screen
 - [ ] Testing for Edit Location
-- [ ] Testing for Error
+- [x] Testing for Error
 - [ ] Testing for Create Locations
