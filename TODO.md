@@ -5,8 +5,8 @@
 - [ ] Support Multiline Comments
 
 # Enhancements
-- [ ] Add Border around Edit Item screen
-- [ ] Add Border around Edit Location screen
+- [x] Add Border around Edit Item screen
+- [x] Add Border around Edit Location screen
 - [ ] Testing for Edit Location
 - [ ] Testing for Error
 - [ ] Testing for Create Locations

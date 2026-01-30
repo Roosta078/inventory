@@ -5,7 +5,7 @@ use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, Padding, Paragraph};
 use std::error;
 use std::fmt;
 
@@ -148,8 +148,10 @@ impl Applet for CreateItemApplet {
             Constraint::Length(3),
         ]);
         let border = Block::bordered()
-            .title_top("Inventory Manager")
-            .title_bottom("Press 'q' or Esc to exit");
+            .title_top("Inventory Manager - Create Item")
+            .title_bottom("Press 'q' or Esc to exit")
+            .border_type(ratatui::widgets::BorderType::Thick)
+            .padding(Padding::horizontal(1));
         let id_widget = Paragraph::new(self.id.clone())
             .style(if self.selection == CreateItemSelection::Id {
                 Style::default().yellow()

@@ -4,7 +4,7 @@ use crate::db::inventory::Inventory;
 use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, List, ListDirection, ListState};
+use ratatui::widgets::{Block, List, ListDirection, ListState, Padding};
 pub struct TopMenuApplet {
     list_state: ListState,
     next_state: AppState,
@@ -36,7 +36,9 @@ impl Applet for TopMenuApplet {
         .block(
             Block::bordered()
                 .title("Inventory Manager")
-                .title_bottom("Press 'q' or Esc to exit"),
+                .title_bottom("Press 'q' or Esc to exit")
+                .border_type(ratatui::widgets::BorderType::Thick)
+                .padding(Padding::horizontal(1)),
         )
         .style(Style::new().white())
         .highlight_style(Style::new().bold())
