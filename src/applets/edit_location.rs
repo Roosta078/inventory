@@ -100,10 +100,10 @@ impl EditLocationApplet {
         db: &inventory::Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.loc.name.is_empty() {
-            return Err(EditLocationError::new("Name"));
+            return Err(EditLocationError::new("Name cannot be empty"));
         }
         if self.loc.comment.clone().unwrap_or_default().is_empty() {
-            self.loc.comment = None; //This should change.  If the edit_location returns an error, the run function will probably panic
+            self.loc.comment = None;
         }
         db.edit_location(&self.loc)?;
         Ok(())
@@ -255,11 +255,8 @@ impl Applet for EditLocationApplet {
                 },
                 EditLocationSelection::Save => match key.code {
                     KeyCode::Enter => {
-                        self.next_state = if self.save_location(db).is_ok() {
-                            AppState::Exit
-                        } else {
-                            AppState::NoChange
-                        }
+                        self.save_location(db)?;
+                        self.next_state = AppState::Exit
                     }
                     _ => (),
                 },
