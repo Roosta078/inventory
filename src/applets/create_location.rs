@@ -352,14 +352,35 @@ mod create_location_tests {
         assert!(my_applet.save_location(&my_inv).is_ok());
     }
 
-    fn fill_db(my_inv: &inventory::Inventory) {
-        for i in 0..5 {
-            let loc = inventory::Location {
-                id: i,
-                name: format!("location{i}").to_string(),
-                comment: Some(format!("comment{i}").to_string()),
-            };
-            assert!(my_inv.add_location(&loc).is_ok());
-        }
+    #[test]
+    fn test_save() {
+        let my_inv = inventory::Inventory::open_in_memory().unwrap();
+        let mut my_applet = CreateLocationApplet::new();
+
+        my_applet.id = "201".into();
+        my_applet.name = "n".into();
+        my_applet.comment = "".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+        assert_eq!(
+            my_inv.search_location_id(201),
+            Some(inventory::Location {
+                id: 201,
+                name: "n".into(),
+                comment: None,
+            })
+        );
+
+        my_applet.id = "202".into();
+        my_applet.name = "n2".into();
+        my_applet.comment = "comment".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+        assert_eq!(
+            my_inv.search_location_id(202),
+            Some(inventory::Location {
+                id: 202,
+                name: "n2".into(),
+                comment: Some("comment".into()),
+            })
+        );
     }
 }
