@@ -6,6 +6,8 @@ use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout, Position};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Padding, Paragraph};
+use std::error;
+use std::fmt;
 
 pub struct CreateLocationApplet {
     next_state: AppState,
@@ -16,7 +18,27 @@ pub struct CreateLocationApplet {
     cursor_position: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug)]
+struct CreateLocationError {
+    error_text: String,
+}
+
+impl fmt::Display for CreateLocationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Create Item Error: {}", self.error_text)
+    }
+}
+
+impl error::Error for CreateLocationError {}
+
+impl CreateLocationError {
+    fn new(msg: &str) -> Box<CreateLocationError> {
+        Box::new(CreateLocationError {
+            error_text: msg.to_string(),
+        })
+    }
+}
+#[derive(Debug, PartialEq)]
 enum CreateLocationSelection {
     Id,
     Name,
@@ -58,13 +80,29 @@ impl CreateLocationApplet {
         }
     }
     fn save_location(&self, db: &inventory::Inventory) -> Result<(), Box<dyn std::error::Error>> {
+        //Check ID
+        let id = self
+            .id
+            .parse::<i64>()
+            .map_err(|_| CreateLocationError::new("Failed to parse Location ID"))?;
+        if db.item_exists(id) {
+            return Err(CreateLocationError::new("Location ID already exists"));
+        }
+
+        //check Name
+        if self.name.is_empty() {
+            return Err(CreateLocationError::new("Name cannot be empty"));
+        }
+
+        //check comment
         let comment_opt = if self.comment.is_empty() {
             None
         } else {
             Some(self.comment.clone())
         };
+
         let new_location = inventory::Location {
-            id: self.id.parse()?,
+            id,
             name: self.name.clone(),
             comment: comment_opt,
         };
@@ -272,5 +310,77 @@ impl Applet for CreateLocationApplet {
 
     fn get_next_state(&self) -> AppState {
         self.next_state.clone()
+    }
+}
+
+#[cfg(test)]
+mod create_location_tests {
+    use super::*;
+    #[test]
+    fn test_new() {
+        let my_applet = CreateLocationApplet::new();
+        assert_eq!(my_applet.next_state, AppState::NoChange);
+        assert!(my_applet.id.is_empty());
+        assert!(my_applet.name.is_empty());
+        assert!(my_applet.comment.is_empty());
+        assert_eq!(my_applet.cursor_position, 0);
+        assert_eq!(my_applet.selection, CreateLocationSelection::Id);
+    }
+
+    #[test]
+    fn test_save_parsing() {
+        let my_inv = inventory::Inventory::open_in_memory().unwrap();
+
+        let mut my_applet = CreateLocationApplet::new();
+
+        my_applet.name = "Some_name".into();
+        my_applet.id = "1".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+        my_applet.id = "nan".into();
+        assert!(my_applet.save_location(&my_inv).is_err());
+        my_applet.id = "0xff".into();
+        assert!(my_applet.save_location(&my_inv).is_err());
+        my_applet.id = "1".into();
+        assert!(my_applet.save_location(&my_inv).is_err());
+        my_applet.id = "2".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+
+        my_applet.id = "3".into();
+        my_applet.name = "".into();
+        assert!(my_applet.save_location(&my_inv).is_err());
+        my_applet.name = "43".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+    }
+
+    #[test]
+    fn test_save() {
+        let my_inv = inventory::Inventory::open_in_memory().unwrap();
+        let mut my_applet = CreateLocationApplet::new();
+
+        my_applet.id = "201".into();
+        my_applet.name = "n".into();
+        my_applet.comment = "".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+        assert_eq!(
+            my_inv.search_location_id(201),
+            Some(inventory::Location {
+                id: 201,
+                name: "n".into(),
+                comment: None,
+            })
+        );
+
+        my_applet.id = "202".into();
+        my_applet.name = "n2".into();
+        my_applet.comment = "comment".into();
+        assert!(my_applet.save_location(&my_inv).is_ok());
+        assert_eq!(
+            my_inv.search_location_id(202),
+            Some(inventory::Location {
+                id: 202,
+                name: "n2".into(),
+                comment: Some("comment".into()),
+            })
+        );
     }
 }

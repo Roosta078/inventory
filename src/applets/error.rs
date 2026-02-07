@@ -1,11 +1,11 @@
 use super::applet::Applet;
 use crate::AppState;
-use crate::db::inventory::{self, Inventory};
+use crate::db::inventory;
 use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
-use ratatui::layout::{Constraint, Layout, Position};
+use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, Paragraph};
+use ratatui::widgets::{Block, Paragraph};
 
 pub struct ErrorApplet {
     next_state: AppState,
@@ -99,7 +99,7 @@ mod error_tests {
     #[test]
     fn test_trait_functions() {
         let mut my_applet = ErrorApplet::new("msg".into());
-        let my_inv = Inventory::open_in_memory().unwrap();
+        let my_inv = inventory::Inventory::open_in_memory().unwrap();
         my_applet.refresh(&my_inv); //ensure it doesn't panic
 
         assert_eq!(my_applet.next_state, AppState::NoChange);
