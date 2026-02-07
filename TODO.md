@@ -9,4 +9,4 @@
 - [x] Add Border around Edit Location screen
 - [x] Testing for Edit Location
 - [x] Testing for Error
-- [ ] Testing for Create Locations
+- [x] Testing for Create Locations
