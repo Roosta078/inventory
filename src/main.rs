@@ -19,6 +19,7 @@ enum AppState {
     NoChange,
     CreateLocation,
     CreateItem,
+    ItemLookup,
     Error(String),
 }
 
@@ -67,6 +68,9 @@ impl App {
                     AppState::CreateItem => self
                         .applets
                         .push(Box::new(applets::CreateItemApplet::new())),
+                    AppState::ItemLookup => self
+                        .applets
+                        .push(Box::new(applets::ItemLookupApplet::new())),
                     AppState::Exit => _ = self.applets.pop(),
                     _ => continue,
                 }

@@ -31,6 +31,7 @@ impl Applet for TopMenuApplet {
             "List Items",
             "Create Location",
             "Create Item",
+            "Item Lookup",
             "Exit",
         ])
         .block(
@@ -58,7 +59,8 @@ impl Applet for TopMenuApplet {
                     1 => self.next_state = AppState::ListItems,
                     2 => self.next_state = AppState::CreateLocation,
                     3 => self.next_state = AppState::CreateItem,
-                    4 => self.next_state = AppState::Exit,
+                    4 => self.next_state = AppState::ItemLookup,
+                    5 => self.next_state = AppState::Exit,
                     _ => (),
                 },
                 _ => {}
