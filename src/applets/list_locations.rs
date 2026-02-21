@@ -3,13 +3,16 @@ use crate::AppState;
 use crate::db::inventory::{Inventory, Location};
 use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
+use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, Padding, Row, Table, TableState};
+use ratatui::widgets::{Block, Padding, Paragraph, Row, Table, TableState};
 
 pub struct ListLocationsApplet {
     table_state: TableState,
     locations: Vec<Location>,
     next_state: AppState,
+    search: String,
+    cursor_position: u16,
 }
 
 impl Default for ListLocationsApplet {
@@ -18,6 +21,8 @@ impl Default for ListLocationsApplet {
             table_state: TableState::default().with_selected_cell(Some((0, 0))),
             next_state: AppState::NoChange,
             locations: Vec::new(),
+            search: String::default(),
+            cursor_position: 0,
         }
     }
 }
@@ -26,7 +31,7 @@ impl Applet for ListLocationsApplet {
     fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
-        _db: &Inventory,
+        db: &Inventory,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.next_state = AppState::NoChange;
 
@@ -53,35 +58,63 @@ impl Applet for ListLocationsApplet {
             );
         }
         let widths: Vec<u16> = Vec::new();
+        let vertical = Layout::vertical([Constraint::Min(1), Constraint::Length(3)]);
+        let border = Block::bordered()
+            .title("Inventory Manager - List Locations")
+            .title_bottom("Press Esc to exit")
+            .border_type(ratatui::widgets::BorderType::Thick)
+            .padding(Padding::horizontal(1));
         let table = Table::new(rows, widths)
-            .block(
-                Block::bordered()
-                    .title("Inventory Manager - List Locations")
-                    .title_bottom("Press 'q' or Esc to exit")
-                    .border_type(ratatui::widgets::BorderType::Thick)
-                    .padding(Padding::horizontal(1)),
-            )
             .style(Style::new().white())
             .cell_highlight_style(Style::new().red())
             .row_highlight_style(Style::new().reversed())
             .highlight_symbol(">>")
             .header(header);
+        let search_bar = Paragraph::new(self.search.clone())
+            .style(Style::default().yellow())
+            .block(Block::bordered().title("Search Term"));
 
         terminal.draw(|frame| {
-            frame.render_stateful_widget(table, frame.area(), &mut self.table_state)
+            let inner_area = border.inner(frame.area());
+            let [table_area, search_area] = vertical.areas(inner_area);
+
+            frame.render_widget(border, frame.area());
+
+            frame.render_stateful_widget(table, table_area, &mut self.table_state);
+            frame.render_widget(search_bar, search_area);
         })?;
 
         if let Some(key) = event::read()?.as_key_press_event() {
             match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => self.next_state = AppState::Exit,
+                KeyCode::Esc => self.next_state = AppState::Exit,
                 KeyCode::Down => self.table_state.select_next(),
                 KeyCode::Up => self.table_state.select_previous(),
                 KeyCode::Left => self.table_state.select_previous_column(),
                 KeyCode::Right => self.table_state.select_next_column(),
-                KeyCode::Char('e') | KeyCode::Enter => {
+                KeyCode::Enter => {
                     self.next_state = AppState::EditLocation(
                         self.locations[self.table_state.selected().unwrap_or(0)].id,
                     )
+                }
+                KeyCode::Char(c) => {
+                    self.search.insert(self.cursor_position.into(), c);
+                    self.cursor_position += 1;
+                    self.locations = db
+                        .search_locations(self.search.as_str())
+                        .unwrap_or_default();
+                }
+                KeyCode::Backspace => {
+                    if self.cursor_position != 0 {
+                        self.cursor_position -= 1;
+                        self.search.remove(self.cursor_position.into());
+                        if self.cursor_position == 0 {
+                            self.refresh(db);
+                        } else {
+                            self.locations = db
+                                .search_locations(self.search.as_str())
+                                .unwrap_or_default();
+                        }
+                    }
                 }
                 _ => {}
             }
