@@ -8,6 +8,7 @@ pub mod item_lookup;
 pub mod list_items;
 pub mod list_locations;
 pub mod location_lookup;
+pub mod scanner;
 pub mod top_menu;
 
 pub use self::applet::Applet;
@@ -20,4 +21,5 @@ pub use self::item_lookup::ItemLookupApplet;
 pub use self::list_items::ListItemsApplet;
 pub use self::list_locations::ListLocationsApplet;
 pub use self::location_lookup::LocationLookupApplet;
+pub use self::scanner::ScannerApplet;
 pub use self::top_menu::TopMenuApplet;

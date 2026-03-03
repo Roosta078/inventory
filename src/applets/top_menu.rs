@@ -1,5 +1,6 @@
 use super::applet::Applet;
 use crate::AppState;
+use crate::applets::ScannerApplet;
 use crate::db::inventory::Inventory;
 use crossterm::event::{self, KeyCode};
 use ratatui::DefaultTerminal;
@@ -65,6 +66,13 @@ impl Applet for TopMenuApplet {
                     6 => self.next_state = AppState::Exit,
                     _ => (),
                 },
+                KeyCode::Char('^') => {
+                    let mut s = ScannerApplet::new();
+                    s.run(terminal, _db)?;
+                    if s.get_next_state() == AppState::NoChange {
+                        self.next_state = AppState::EditLocation(s.get_input().into())
+                    }
+                }
                 _ => {}
             }
         }
